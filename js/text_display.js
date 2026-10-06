@@ -9,7 +9,7 @@ let highlight_curr = "none";
 let toggle_button_display = false;
 let isTagListVisible = false; // Track the visibility state
 
-const FolderBase = "../../teiEncode/";
+const FolderBase = "./teiEncode/";
 const OptionToFilename = {
   "Search a text to explore": "default_page",
   "Mr. Gilfil's Love Story (1857)": "Mr.Gilfil's Love Story",
