@@ -1,0 +1,1084 @@
+let search_minimized = false;
+let search_toggle = "";
+let text_select = "";
+let id_pop_row = "";
+let selected_current = "";
+let selected_voyant = "";
+let display_voyant = false;
+let highlight_curr = "none";
+let toggle_button_display = false;
+let isTagListVisible = false; // Track the visibility state
+
+const FolderBase = "../../teiEncode/";
+const OptionToFilename = {
+  "Search a text to explore": "default_page",
+  "Mr. Gilfil's Love Story (1857)": "Mr.Gilfil's Love Story",
+  "Janet's Repentance (1857)": "Janet's Repentance",
+  "The Sad Fortunes of the Rev. Amos Barton (1857)": "The Sad Fortunes of the Reverend Amos Barton",
+  "Adam Bede (1859)": "Adam Bede_refine_v1.1",
+  "The Lifted Veil (1859)": "The Lifted Veil",
+  "The Mill on the Floss (1860)": "The Mill on the Floss",
+  "Silas Marner (1861)": "Silas Marner",
+  "Romola (1863)": "Romola_refine_v1",
+  "Brother Jacob (1864)": "Brother Jacob_refine_v1",
+  "Felix Holt, the Radical (1866)": "Felix Holt, the Radical_refine_v1",
+  "Middlemarch (1871-72)": "Middlemarch_refine_v1",
+  "Daniel Deronda (1876)": "Daniel_Deronda_refine_v1",
+  "Impressions of Theophrastus Such (1879)": "Impressions of Theophrastus Such",
+  "All Fiction": "all_fictions_simple",
+  "All Nonfiction": "nonfiction_v2",
+  "The Spanish Gypsy (1868)": "The_Spanish_Gypsy",
+  "All Poetry Except The Spanish Gypsy": "poetry_allinone",
+};
+
+const VOYANT_BASE = "https://voyant.fishee.org";
+const OptionToVoyant = {
+  "Search a text to explore": "",
+  "Mr. Gilfil's Love Story (1857)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=8ac0432296676f93e04e27fa311572d6&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Janet's Repentance (1857)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=0575656ba58f8fd6b94ccd50304d78a4&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "The Sad Fortunes of the Rev. Amos Barton (1857)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=6bbe068d2ed887ac563ae9f9ce59e1e4&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Adam Bede (1859)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=5d06f504b20a8eef95d5c7666fcefa53&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "The Lifted Veil (1859)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=492ae05a96f04b0e07b89140ec73678b&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "The Mill on the Floss (1860)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=41371bc0e28d8cf1f675f47e9a5c6a0f&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Silas Marner (1861)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=abed769f964856ae953d168bdc594d58&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Romola (1863)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=d393dc2327f985bdc75ebe948b3809e8&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Brother Jacob (1864)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=71182174980d4bea97f433e13b05bc9d&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Felix Holt, the Radical (1866)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=48a28aea0c8a3ca30612acedbea2ab4b&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Middlemarch (1871-72)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=e66ca6ddfdfb5b6bdb1247553c0b91b6&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Daniel Deronda (1876)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=df845f097563eb333ace24e514a236b7&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "Impressions of Theophrastus Such (1879)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=3eaffbc5b9ac83885210753c563801b2&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "All Fiction":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=989b84c85a4a52a0261ed896533852c0&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "All Nonfiction":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=3f4878c8f2cfc3aa951349b2c3203818&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "The Spanish Gypsy (1868)":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=e559c2d715a542f35bccef547f247f80&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+  "All Poetry Except The Spanish Gypsy":
+    VOYANT_BASE + "/tool/Cirrus/?corpus=e0e71c4d489d423374d9779d254daa91&stopList=keywords-2459d9912745179a64508611ee85dd7e&whiteList=",
+};
+
+function populateDropdown() {
+  // Array of options to add
+  let options = OptionToFilename;
+
+  // Get the select element
+  let select = document.getElementById("fiction_list");
+
+  let firstOptionValue;
+
+  for (let x in options) {
+    if (options.hasOwnProperty(x)) {
+      // let opt = x;
+      let el = document.createElement("option");
+      el.textContent = x;
+      el.value = options[x];
+      select.appendChild(el);
+
+      if (!firstOptionValue) {
+        firstOptionValue = options[x]; // Set the first option value
+      }
+    }
+  }
+  select.addEventListener("change", function () {
+    let selectedOption = this.value;
+    // console.log("Selected: " + selectedOption);
+    selected_current = this.options[this.selectedIndex].text;
+    let doc_clear = document.getElementById("xml-display");
+    doc_clear.innerHTML = "";
+    closeVoyantTool();
+    displayTEIContent(selectedOption);
+  });
+
+  // Select the first option as default
+  select.value = firstOptionValue;
+
+  // Trigger the change event or call the function directly for the first option
+  // Method 1: Trigger change event
+  let event = new Event("change");
+  select.dispatchEvent(event);
+
+  // Or Method 2: Call the function directly
+  // displayTEIContent(firstOptionValue);
+
+  displayTagsNew();
+}
+
+async function displayTEIContent(filename) {
+  let relativePath = FolderBase + filename + ".xml";
+
+  try {
+    // Fetch the XML file from a relative path
+    const response = await fetch(relativePath);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    hide_search_container();
+
+    // Get the XML text from the response
+    const xmlText = await response.text();
+
+    // Use DOMParser to parse the XML text
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+    // Serialize XML DOM to string
+    // let frontNode = xmlDoc.getElementsByTagName("front")[0];
+    // console.log(frontNode);
+
+    let serializer = new XMLSerializer();
+    let serializedXml = serializer.serializeToString(xmlDoc);
+    // Escape the XML string
+
+    const display = document.getElementById("xml-display");
+    display.innerHTML = escapeXml(serializedXml);
+    annotateCorpusStructure(xmlDoc, display);
+  } catch (error) {
+    console.error("Error fetching or parsing XML:", error);
+  }
+
+  // Add CSS for highlight class
+  // const style = document.createElement("style");
+  // style.innerHTML = `
+  //   .highlight_tag {
+  //       background-color: rgba(144, 238, 144, 0.4); /* Light green background with 50% opacity */
+  //   #button-container {
+  //       z-index: 1000; /* Ensure the buttons are always on top */
+  //   }
+  //   .btn-secondary {
+  //       margin-bottom: 10px; /* Adjust margin to ensure the toggle button does not overlap with the buttons */
+  //   }
+  //   .btn-secondary span {
+  //   display: inline-block;
+  //   width: 100%;
+  //   }
+  //   #toggle-button {
+  //     width: 30px;
+  //   }
+  // `;
+  // document.head.appendChild(style);
+  // highlightTagText("name");
+  // document.getElementById("xml-display").appendChild(createButtons());
+
+  // reset the highlight button
+  highlight_curr = "none";
+  toggle_button_display = false;
+}
+
+function annotateCorpusStructure(xmlDoc, displayArea) {
+  // HTML fragment parsing treats TEI <head> as the HTML <head> element and can
+  // drop that tag. Preserve the work titles from the parsed XML before search.
+  const xmlDivs = Array.from(xmlDoc.getElementsByTagNameNS("*", "div")).filter(
+    (element) => element.getAttribute("type") === "work",
+  );
+  const renderedWorks = Array.from(displayArea.querySelectorAll('div[type="work"]'));
+
+  renderedWorks.forEach((work, index) => {
+    const xmlWork = xmlDivs[index];
+    let title = "";
+    if (xmlWork) {
+      const head = Array.from(xmlWork.children).find((child) => child.localName === "head");
+      title = head ? head.textContent : "";
+    }
+    work.dataset.searchGroupKey = `fiction-${index}`;
+    work.dataset.searchTitle = cleanGroupTitle(title, `Untitled work ${index + 1}`);
+  });
+
+  Array.from(displayArea.querySelectorAll("teisubtitle")).forEach((subtitle, index) => {
+    subtitle.dataset.searchGroupKey = `nonfiction-${index}`;
+    subtitle.dataset.searchTitle = cleanGroupTitle(subtitle.textContent, `Untitled work ${index + 1}`);
+  });
+}
+
+function searchAndHighlight(phrase) {
+  if (phrase === "" || isOnlyWhitespace(phrase) === true) {
+    hide_search_container();
+    return;
+  }
+
+  const displayArea = document.getElementsByTagName("text")[0];
+  if (!displayArea) return;
+
+  const searchContainer = document.getElementById("search_container");
+  const searchInput = document.getElementById("search_input");
+
+  clearSearchHighlights(displayArea);
+  search_toggle = "";
+  id_pop_row = "";
+  search_minimized = false;
+  searchContainer.classList.remove("minimized");
+  searchContainer.classList.toggle("corpus-search", isCorpusSelection());
+  searchContainer.replaceChildren();
+
+  const escapedPhrase = phrase.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+  // Preserve the current Text Explorer behavior: a search for "friend"
+  // also finds words such as "friendly" and "friendship".
+  const regex = new RegExp(`\\b${escapedPhrase}\\w*`, "gi");
+
+  const nodeEntries = collectSearchableTextNodes(displayArea);
+  const groupStats = buildGroupStats(nodeEntries);
+  const matches = highlightMatches(nodeEntries, groupStats, regex);
+
+  const panelBody = document.createElement("div");
+  panelBody.className = "search-panel-body";
+
+  const analytics = buildSearchAnalytics(matches, groupStats, phrase);
+  if (analytics) panelBody.appendChild(analytics);
+
+  const searchResults = buildSearchResults(matches, groupStats);
+  panelBody.appendChild(searchResults);
+  searchContainer.appendChild(panelBody);
+
+  addSearchPanelHeader(searchContainer, panelBody, matches.length, searchInput);
+
+  searchContainer.style.display = "block";
+  draggable_div(searchContainer);
+}
+
+function isCorpusSelection() {
+  return selected_current === "All Fiction" || selected_current === "All Nonfiction";
+}
+
+function clearSearchHighlights(displayArea) {
+  const highlighted = Array.from(displayArea.querySelectorAll(".highlight"));
+  highlighted.forEach((span) => {
+    const parent = span.parentNode;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
+  });
+  displayArea.normalize();
+}
+
+function countWords(text) {
+  const words = text.match(/[A-Za-z0-9À-ÖØ-öø-ÿ]+(?:['’\-][A-Za-z0-9À-ÖØ-öø-ÿ]+)*/g);
+  return words ? words.length : 0;
+}
+
+function directChildHead(workElement) {
+  if (!workElement) return null;
+  return Array.from(workElement.children).find((child) => child.tagName.toLowerCase() === "head") || null;
+}
+
+function cleanGroupTitle(text, fallback) {
+  const cleaned = (text || "").replace(/\s+/g, " ").trim();
+  return cleaned || fallback;
+}
+
+function collectSearchableTextNodes(displayArea) {
+  const entries = [];
+  const walker = document.createTreeWalker(displayArea, NodeFilter.SHOW_TEXT);
+  let currentNonfictionTitle = "";
+  let currentNonfictionKey = "";
+  let nonfictionIndex = -1;
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (!node.nodeValue || node.nodeValue.trim() === "") continue;
+
+    let groupKey = "single";
+    let groupTitle = selected_current || "Selected text";
+    let groupElement = displayArea;
+
+    if (selected_current === "All Fiction") {
+      const work = node.parentElement ? node.parentElement.closest('div[type="work"]') : null;
+      if (!work) continue; // corpus results should be grouped only by actual works
+      const head = directChildHead(work);
+      groupTitle = cleanGroupTitle(
+        work.dataset.searchTitle || (head ? head.textContent : ""),
+        "Untitled work",
+      );
+      groupKey = work.dataset.searchGroupKey || "fiction-unknown";
+      groupElement = work;
+    } else if (selected_current === "All Nonfiction") {
+      const subtitle = node.parentElement ? node.parentElement.closest("teisubtitle") : null;
+      if (subtitle && subtitle.dataset.searchGroupKey !== currentNonfictionKey) {
+        nonfictionIndex += 1;
+        currentNonfictionTitle = cleanGroupTitle(
+          subtitle.dataset.searchTitle || subtitle.textContent,
+          `Untitled work ${nonfictionIndex + 1}`,
+        );
+        currentNonfictionKey = subtitle.dataset.searchGroupKey || `nonfiction-${nonfictionIndex}`;
+      }
+      // Ignore corpus front matter before the first <teiSubTitle>.
+      if (!currentNonfictionKey) continue;
+      groupKey = currentNonfictionKey;
+      groupTitle = currentNonfictionTitle;
+      groupElement = subtitle || groupElement;
+    }
+
+    entries.push({ node, groupKey, groupTitle, groupElement, wordCount: countWords(node.nodeValue) });
+  }
+
+  return entries;
+}
+
+function buildGroupStats(entries) {
+  const groups = new Map();
+  entries.forEach((entry) => {
+    if (!groups.has(entry.groupKey)) {
+      groups.set(entry.groupKey, {
+        key: entry.groupKey,
+        title: entry.groupTitle,
+        wordCount: 0,
+        matches: [],
+        runningWords: 0,
+      });
+    }
+    groups.get(entry.groupKey).wordCount += entry.wordCount;
+  });
+  return groups;
+}
+
+function highlightMatches(entries, groupStats, regex) {
+  const matches = [];
+  let counter = 0;
+
+  entries.forEach((entry) => {
+    const group = groupStats.get(entry.groupKey);
+    const textNode = entry.node;
+    const text = textNode.nodeValue;
+    const found = Array.from(text.matchAll(regex));
+
+    if (found.length === 0) {
+      group.runningWords += entry.wordCount;
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+
+    found.forEach((match) => {
+      const matchIndex = match.index;
+      const matchedText = match[0];
+      const id = `match-${counter}`;
+      const popId = `pop-${counter}`;
+      counter += 1;
+
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex, matchIndex)));
+      const highlight = document.createElement("span");
+      highlight.className = "highlight";
+      highlight.id = id;
+      highlight.textContent = matchedText;
+      fragment.appendChild(highlight);
+
+      const before = text.slice(0, matchIndex).match(/(?:\S+\s+){0,5}$/)?.[0] || "";
+      const after = text.slice(matchIndex + matchedText.length).match(/^(?:\s+\S+){0,5}/)?.[0] || "";
+      const wordsBefore = countWords(text.slice(0, matchIndex));
+      const absoluteWordPosition = group.runningWords + wordsBefore;
+      const relativePosition = group.wordCount > 0 ? absoluteWordPosition / group.wordCount : 0;
+
+      const record = {
+        id,
+        popId,
+        matchedText,
+        before,
+        after,
+        groupKey: entry.groupKey,
+        groupTitle: entry.groupTitle,
+        relativePosition: Math.max(0, Math.min(1, relativePosition)),
+      };
+      matches.push(record);
+      group.matches.push(record);
+      lastIndex = matchIndex + matchedText.length;
+    });
+
+    fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    textNode.parentNode.replaceChild(fragment, textNode);
+    group.runningWords += entry.wordCount;
+  });
+
+  groupStats.forEach((group) => {
+    group.relativeFrequency = group.wordCount > 0 ? (group.matches.length / group.wordCount) * 10000 : 0;
+  });
+
+  return matches;
+}
+
+function buildSearchAnalytics(matches, groupStats, phrase) {
+  if (matches.length === 0) return null;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "search-analytics";
+
+  if (isCorpusSelection()) {
+    const frequencyDetails = document.createElement("details");
+    frequencyDetails.className = "analytics-section";
+    frequencyDetails.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = selected_current === "All Fiction" ? "Frequency across books" : "Frequency across works";
+    frequencyDetails.appendChild(summary);
+    frequencyDetails.appendChild(buildCorpusFrequencyBars(groupStats));
+    wrapper.appendChild(frequencyDetails);
+  } else {
+    const trendDetails = document.createElement("details");
+    trendDetails.className = "analytics-section";
+    trendDetails.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = "Frequency across this work";
+    trendDetails.appendChild(summary);
+    const onlyGroup = Array.from(groupStats.values())[0];
+    if (onlyGroup) trendDetails.appendChild(buildTrendChart(onlyGroup.matches, `Distribution of “${phrase}”`));
+    wrapper.appendChild(trendDetails);
+  }
+
+  return wrapper;
+}
+
+function buildCorpusFrequencyBars(groupStats) {
+  const container = document.createElement("div");
+  container.className = "frequency-bars";
+
+  const groups = Array.from(groupStats.values()).filter((group) => group.matches.length > 0);
+  const maxFrequency = Math.max(...groups.map((group) => group.relativeFrequency), 0.0001);
+
+  const note = document.createElement("div");
+  note.className = "analytics-note";
+  note.textContent = "Relative frequency: occurrences per 10,000 words. Select a work to open its results.";
+  container.appendChild(note);
+
+  groups.forEach((group) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "frequency-row";
+    row.dataset.groupKey = group.key;
+
+    const label = document.createElement("span");
+    label.className = "frequency-label";
+    label.textContent = group.title;
+
+    const track = document.createElement("span");
+    track.className = "frequency-track";
+    const fill = document.createElement("span");
+    fill.className = "frequency-fill";
+    fill.style.width = `${Math.max(2, (group.relativeFrequency / maxFrequency) * 100)}%`;
+    track.appendChild(fill);
+
+    const value = document.createElement("span");
+    value.className = "frequency-value";
+    value.textContent = `${group.relativeFrequency.toFixed(2)} (${group.matches.length})`;
+    value.title = `${group.matches.length} occurrences`;
+
+    row.append(label, track, value);
+    row.addEventListener("click", () => openAndScrollToGroup(group.key));
+    container.appendChild(row);
+  });
+
+  return container;
+}
+
+function buildTrendChart(matches, labelText) {
+  const chartWrap = document.createElement("div");
+  chartWrap.className = "trend-chart-wrap";
+
+  const note = document.createElement("div");
+  note.className = "analytics-note";
+  note.textContent = "20 equal word segments. Select the trend to jump to the nearest occurrence.";
+  chartWrap.appendChild(note);
+
+  if (!matches || matches.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "trend-empty";
+    empty.textContent = "No occurrences in this work.";
+    chartWrap.appendChild(empty);
+    return chartWrap;
+  }
+
+  const bins = 20;
+  const counts = Array(bins).fill(0);
+  matches.forEach((match) => {
+    const index = Math.min(bins - 1, Math.floor(match.relativePosition * bins));
+    counts[index] += 1;
+  });
+  const max = Math.max(...counts, 1);
+
+  const width = 520;
+  const height = 112;
+  const top = 10;
+  const bottom = 22;
+  const plotHeight = height - top - bottom;
+  const step = width / (bins - 1);
+  const points = counts.map((count, i) => {
+    const x = i * step;
+    const y = top + plotHeight - (count / max) * plotHeight;
+    return `${x},${y}`;
+  }).join(" ");
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", labelText);
+  svg.classList.add("trend-chart");
+
+  const baseline = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  baseline.setAttribute("x1", "0");
+  baseline.setAttribute("x2", String(width));
+  baseline.setAttribute("y1", String(height - bottom));
+  baseline.setAttribute("y2", String(height - bottom));
+  baseline.setAttribute("class", "trend-axis");
+  svg.appendChild(baseline);
+
+  const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  polyline.setAttribute("points", points);
+  polyline.setAttribute("class", "trend-line");
+  svg.appendChild(polyline);
+
+  counts.forEach((count, i) => {
+    const x = i * step;
+    const y = top + plotHeight - (count / max) * plotHeight;
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", String(x));
+    circle.setAttribute("cy", String(y));
+    circle.setAttribute("r", count > 0 ? "3" : "1.5");
+    circle.setAttribute("class", count > 0 ? "trend-point" : "trend-point trend-point-empty");
+    svg.appendChild(circle);
+  });
+
+  for (let i = 0; i < bins; i += 1) {
+    const hit = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    const x = (i / bins) * width;
+    hit.setAttribute("x", String(x));
+    hit.setAttribute("y", "0");
+    hit.setAttribute("width", String(width / bins));
+    hit.setAttribute("height", String(height - bottom));
+    hit.setAttribute("class", "trend-hit-area");
+    hit.setAttribute("tabindex", "0");
+    hit.setAttribute("aria-label", `Position ${Math.round(((i + 0.5) / bins) * 100)} percent`);
+    const jump = () => jumpToNearestMatch(matches, (i + 0.5) / bins);
+    hit.addEventListener("click", jump);
+    hit.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") jump();
+    });
+    svg.appendChild(hit);
+  }
+
+  const labels = document.createElement("div");
+  labels.className = "trend-labels";
+  labels.innerHTML = "<span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>";
+
+  chartWrap.append(svg, labels);
+  return chartWrap;
+}
+
+function buildSearchResults(matches, groupStats) {
+  const searchResults = document.createElement("div");
+  searchResults.id = "search_results";
+  searchResults.className = "container search-results-list";
+
+  if (matches.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "no-search-results";
+    empty.textContent = "No results found.";
+    searchResults.appendChild(empty);
+    return searchResults;
+  }
+
+  if (isCorpusSelection()) {
+    let openedFirst = false;
+    groupStats.forEach((group) => {
+      if (group.matches.length === 0) return;
+      const details = document.createElement("details");
+      details.className = "work-result-group";
+      details.dataset.groupKey = group.key;
+      if (!openedFirst) {
+        details.open = true;
+        openedFirst = true;
+      }
+
+      const summary = document.createElement("summary");
+      summary.className = "work-result-summary";
+      summary.textContent = `${group.title} (${group.matches.length})`;
+      details.appendChild(summary);
+
+      const trendSection = document.createElement("div");
+      trendSection.className = "group-trend-section";
+      const trendLabel = document.createElement("div");
+      trendLabel.className = "group-trend-label";
+      trendLabel.textContent = "Frequency across this work";
+      trendSection.appendChild(trendLabel);
+      trendSection.appendChild(buildTrendChart(group.matches, `Distribution in ${group.title}`));
+      details.appendChild(trendSection);
+
+      const resultList = document.createElement("div");
+      resultList.className = "group-result-list";
+      group.matches.forEach((match) => resultList.appendChild(createSearchResultItem(match)));
+      details.appendChild(resultList);
+      searchResults.appendChild(details);
+    });
+  } else {
+    matches.forEach((match) => searchResults.appendChild(createSearchResultItem(match)));
+  }
+
+  return searchResults;
+}
+
+function createSearchResultItem(match) {
+  const resultItem = document.createElement("div");
+  resultItem.className = "search-result";
+  resultItem.dataset.matchId = match.id;
+
+  const resultText = document.createElement("span");
+  resultText.id = match.popId;
+  resultText.appendChild(document.createTextNode(match.before));
+  const strong = document.createElement("strong");
+  strong.textContent = match.matchedText;
+  resultText.appendChild(strong);
+  resultText.appendChild(document.createTextNode(match.after));
+  resultItem.appendChild(resultText);
+
+  resultItem.addEventListener("click", () => jumpToMatch(match));
+  return resultItem;
+}
+
+function openAndScrollToGroup(groupKey) {
+  const details = Array.from(document.querySelectorAll(".work-result-group")).find(
+    (item) => item.dataset.groupKey === groupKey,
+  );
+  if (!details) return;
+  details.open = true;
+  const panelBody = details.closest(".search-panel-body");
+  if (panelBody) {
+    panelBody.scrollTo({ top: Math.max(0, details.offsetTop - 6), behavior: "smooth" });
+  }
+}
+
+function jumpToNearestMatch(matches, targetPosition) {
+  if (!matches || matches.length === 0) return;
+  let nearest = matches[0];
+  let nearestDistance = Math.abs(nearest.relativePosition - targetPosition);
+  matches.forEach((match) => {
+    const distance = Math.abs(match.relativePosition - targetPosition);
+    if (distance < nearestDistance) {
+      nearest = match;
+      nearestDistance = distance;
+    }
+  });
+
+  if (isCorpusSelection()) openAndScrollToGroup(nearest.groupKey);
+  jumpToMatch(nearest);
+}
+
+function jumpToMatch(match) {
+  const displayArea = document.getElementsByTagName("text")[0];
+  let target = document.getElementById(match.id);
+  if (!target || !displayArea) return;
+
+  // Preserve the existing table-of-contents behavior: when a highlighted
+  // match is inside <ref target="#...">, jump to the referenced section.
+  const reference = target.closest("ref[target]");
+  if (reference) {
+    const referenceTarget = reference.getAttribute("target");
+    if (referenceTarget && referenceTarget.startsWith("#")) {
+      const targetName = referenceTarget.slice(1);
+      const xmlIdTarget = Array.from(displayArea.querySelectorAll("[xml\\:id]")).find(
+        (element) => element.getAttribute("xml:id") === targetName,
+      );
+      const tagTarget = displayArea.getElementsByTagName(targetName)[0];
+      target = xmlIdTarget || tagTarget || target;
+    }
+  }
+
+  if (!target.id) target.id = `jump-${match.id}`;
+  const targetId = target.id;
+  const targetPosition = target.getBoundingClientRect().top;
+  const offsetPosition = window.pageYOffset + targetPosition - window.innerHeight / 2;
+  window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+
+  const oldResult = document.getElementById(id_pop_row);
+  if (oldResult) oldResult.classList.remove("text-primary");
+  const currentResult = document.getElementById(match.popId);
+  if (currentResult) currentResult.classList.add("text-primary");
+  id_pop_row = match.popId;
+
+  if (search_toggle !== targetId) {
+    if (search_toggle !== "") {
+      const oldTarget = document.getElementById(search_toggle);
+      if (oldTarget) oldTarget.classList.remove("jump-to");
+    }
+    search_toggle = targetId;
+    target.classList.add("jump-to");
+  }
+}
+
+function addSearchPanelHeader(docContainer, panelBody, resultCount, docScrollTop) {
+  const header = document.createElement("div");
+  header.className = "search-panel-header position-sticky top-0";
+
+  const textDisplay = document.createElement("span");
+  textDisplay.className = "text-primary fs-6 search-result-count";
+  textDisplay.textContent = `${resultCount} results`;
+  header.appendChild(textDisplay);
+
+  const divButtons = document.createElement("div");
+  divButtons.id = "sr_div_buttons";
+  divButtons.className = "btn-group";
+  divButtons.setAttribute("role", "group");
+
+  const buttonItem = document.createElement("button");
+  buttonItem.className = "btn btn-outline-primary btn-sm";
+  buttonItem.type = "button";
+  buttonItem.textContent = "Min";
+  buttonItem.id = "sr_minimize_button";
+  buttonItem.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!search_minimized) {
+      docContainer.classList.add("minimized");
+      panelBody.classList.add("minimized");
+      buttonItem.textContent = "Max";
+      search_minimized = true;
+    } else {
+      docContainer.classList.remove("minimized");
+      panelBody.classList.remove("minimized");
+      buttonItem.textContent = "Min";
+      search_minimized = false;
+    }
+  });
+
+  const buttonScrollTop = document.createElement("button");
+  buttonScrollTop.className = "btn btn-outline-success btn-sm";
+  buttonScrollTop.type = "button";
+  buttonScrollTop.textContent = "Top";
+  buttonScrollTop.id = "sr_scroll_top_button";
+  buttonScrollTop.addEventListener("click", (event) => {
+    event.stopPropagation();
+    docScrollTop.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  divButtons.append(buttonItem, buttonScrollTop);
+  header.appendChild(divButtons);
+  docContainer.insertBefore(header, docContainer.firstChild);
+}
+
+function offset(el) {
+  const rect = el.getBoundingClientRect(),
+    scrollLeft = window.pageXOffset || document.documentElement.scrollLeft,
+    scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+  return {
+    top: rect.top + scrollTop,
+    left: rect.left + scrollLeft,
+  };
+}
+
+function draggable_div(doc_drag) {
+  //prevent duplicate event binding
+  if (doc_drag.dataset.draggableInitialized === "true") {
+    return;
+  }
+  doc_drag.dataset.draggableInitialized = "true";
+
+  // Variables to hold mouse x and y position
+  let mouseX = 0,
+    mouseY = 0,
+    elementX = 0,
+    elementY = 0;
+
+  function onMouseMove(event) {
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    doc_drag.style.left = mouseX + elementX + "px";
+    doc_drag.style.top = mouseY + elementY + "px";
+  }
+
+  doc_drag.addEventListener("mousedown", function (e) {
+    // Drag only from the panel header so charts, results, and scrollbars remain interactive.
+    if (!e.target.closest(".search-panel-header") || e.target.closest("button")) return;
+
+    elementX = doc_drag.offsetLeft - e.clientX;
+    elementY = doc_drag.offsetTop - e.clientY;
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  });
+
+  function onMouseUp() {
+    // Remove the listeners when mouse button is released
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+  }
+
+  //mobile device suport
+  doc_drag.addEventListener("touchstart", function (e) {
+    // when using finger on mobile devices
+    if (!e.target.closest(".search-panel-header") || e.target.closest("button")) {
+      return;
+    }
+    if(e.touches.length !== 1) {
+      return;
+    }
+    const touch = e.touches[0];
+    elementX = doc_drag.offsetLeft - touch.clientX;
+    elementY = doc_drag.offsetTop - touch.clientY;
+
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onTouchEnd);
+    document.addEventListener("touchcancel", onTouchEnd);
+  },
+  { passive: true }
+);
+function onTouchMove(e) {
+  if (e.touches.length !== 1) {
+    return;
+  }
+  e.preventDefault();
+  const touch = e.touches[0];
+  doc_drag.style.left = touch.clientX + elementX + "px";
+  doc_drag.style.top = touch.clientY + elementY + "px";
+}
+function onTouchEnd() {
+  document.removeEventListener("touchmove", onTouchMove);
+  document.removeEventListener("touchend", onTouchEnd);
+  document.removeEventListener("touchcancel", onTouchEnd);
+}
+
+}
+
+function xmlToHtml(xmlNode) {
+  let html = "";
+
+  // Iterate over XML nodes and build HTML
+  xmlNode.childNodes.forEach(function (node) {
+    switch (node.nodeType) {
+      case Node.ELEMENT_NODE: // Element
+        html += "<div><strong>" + node.nodeName + ":</strong>";
+        html += xmlToHtml(node); // Recursive call for child nodes
+        html += "</div>";
+        break;
+      case Node.TEXT_NODE: // Text
+        if (node.textContent.trim() !== "") {
+          html += " " + node.textContent;
+        }
+        break;
+    }
+  });
+
+  return html;
+}
+
+function escapeXml(xmlString) {
+  // Escape special characters, <q>'s, and </q>'s
+  return xmlString.replace(/<q>/gi, "").replace(/<\/q>/gi, "");
+}
+
+function revisePhrase(phrase) {
+  let p_revised = "";
+
+  if (phrase !== undefined) {
+    p_revised = phrase.replace(/<p\s*$/, "");
+  }
+
+  return p_revised;
+}
+
+function minimize_pop() {
+  const buttonItem = document.getElementById("sr_minimize_button");
+  const doc_container = document.getElementById("search_container");
+  const displayed_results = document.getElementById("search_results");
+  if (search_minimized === false) {
+    doc_container.classList.add("minimized");
+    displayed_results.classList.add("minimized");
+    buttonItem.textContent = "Max";
+    search_minimized = true;
+  }
+}
+
+function hide_search_container() {
+  const searchContainer = document.getElementById("search_container");
+  if (searchContainer !== null) {
+    // searchContainer.innerHTML = "";
+    searchContainer.style.display = "none";
+  }
+}
+
+function initVoyantTool() {
+  selected_voyant = "";
+  display_voyant = false;
+  changeVoyantToolButton("Voyant Tools");
+}
+// Function to insert the Voyant tool
+function insertVoyantTool(url) {
+  let iframe = document.createElement("iframe");
+  iframe.setAttribute("src", url);
+  iframe.setAttribute("width", "100%");
+  iframe.setAttribute("height", "600");
+  iframe.setAttribute("id", "voyantIframe"); // Set an ID for the iframe
+
+  let container = document.getElementById("voyant-tool-display");
+  container.appendChild(iframe);
+  changeVoyantToolButton("Close Voyant");
+}
+
+// Function to remove the Voyant tool
+function closeVoyantTool() {
+  let iframe = document.getElementById("voyantIframe");
+  if (iframe) {
+    iframe.remove(); // Remove the iframe
+  }
+  initVoyantTool();
+}
+
+function displayVoyantTool() {
+  if (display_voyant === false || selected_voyant !== selected_current) {
+    const url = OptionToVoyant[selected_current];
+    if (url === "") {
+      initVoyantTool();
+      return;
+    }
+    insertVoyantTool(url);
+    display_voyant = true;
+    selected_voyant = selected_current;
+  } else {
+    closeVoyantTool();
+    display_voyant = false;
+  }
+
+  // document.getElementById("button-voyant").addEventListener("click", closeVoyantTool);
+  const voyantTool = document.getElementById("voyant-tool-display");
+  voyantTool.style.display = "block";
+}
+
+function changeVoyantToolButton(value) {
+  const voyantToolButton = document.getElementById("button-voyant");
+  voyantToolButton.textContent = value;
+}
+
+function isOnlyWhitespace(str) {
+  return /^\s*$/.test(str);
+}
+
+function switchHighlight() {
+  displayTEIContent(selectedOption);
+}
+
+// function for highlighting the text by tag like <name>, <place>, <date>, etc.
+function highlightTagText(tag) {
+  // console.log("Highlighting tag:", tag, "current:", highlight_curr);
+  if (highlight_curr === tag) {
+    return;
+  }
+  if (tag === "none") {
+    removeHighlightTagText();
+    deactiveButton(highlight_curr);
+    highlight_curr = "none";
+    activeButton(highlight_curr);
+    return;
+  }
+
+  if (highlight_curr !== "none") {
+    removeHighlightTagText();
+  }
+
+  deactiveButton(highlight_curr);
+
+  removeHighlightTagText();
+  highlight_curr = tag;
+
+  const displayArea = document.getElementsByTagName("text")[0];
+  if (!displayArea) {
+    console.error("Display area not found");
+    return;
+  }
+
+  let content = displayArea.innerHTML;
+  const tagRegex = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
+  const highlightedContent = content.replace(
+    tagRegex,
+    `<span class="highlight_tag_${tag}" data-tag="${tag}">$1</span>`
+  );
+
+  displayArea.innerHTML = highlightedContent;
+
+  // activeButton(tag);
+}
+
+// Function to remove highlight from specified tag
+function removeHighlightTagText() {
+  if (highlight_curr === "none") {
+    return;
+  }
+  // deactiveButton(highlight_curr);
+  const displayArea = document.getElementsByTagName("text")[0];
+  if (!displayArea) {
+    console.error("Display area not found");
+    return;
+  }
+
+  let content = displayArea.innerHTML;
+  const highlightTagRegex = new RegExp(
+    `<span class="highlight_tag_${highlight_curr}" data-tag="${highlight_curr}">(.*?)</span>`,
+    "g"
+  );
+  const unhighlightedContent = content.replace(highlightTagRegex, `<${highlight_curr}>$1</${highlight_curr}>`);
+
+  displayArea.innerHTML = unhighlightedContent;
+  // highlight_curr = "none";
+  // activeButton(highlight_curr);
+}
+
+function activeButton(tag) {
+  const btn = document.getElementById(`btn_${tag}`);
+  if (btn) {
+    btn.classList.add("active");
+  }
+}
+
+function deactiveButton(tag) {
+  const btn = document.getElementById(`btn_${tag}`);
+  if (btn) {
+    btn.classList.remove("active");
+  }
+}
+
+function displayTagsNew() {
+  const toggleButton = document.querySelector(".toggle-button");
+  const tagList = document.querySelector(".tag-list");
+  const arrowIcon = document.querySelector(".arrow-icon");
+
+  tagList.classList.add("d-none"); // Hide the tag list initially
+
+  toggleButton.addEventListener("click", () => {
+    isTagListVisible = !isTagListVisible;
+    // tagList.style.display = isTagListVisible ? "flex" : "none";
+    if (isTagListVisible) {
+      tagList.classList.remove("d-none");
+    } else {
+      tagList.classList.add("d-none");
+    }
+    // console.log("Tag list visibility:", isTagListVisible);
+
+    arrowIcon.classList.toggle("bi-chevron-left", isTagListVisible);
+    arrowIcon.classList.toggle("bi-chevron-right", !isTagListVisible);
+  });
+
+  const tagItems = document.querySelectorAll(".tag-item");
+  tagItems.forEach((tag) => {
+    tag.addEventListener("click", () => {
+      // Your tag click handling logic here
+      // console.log(`Clicked on: ${tag.textContent}`);
+      if (tag.textContent === "Clear") {
+        highlightTagText("none");
+      } else if (tag.textContent === "Back") {
+        // console.log("go back to the top.");
+        scroll_to_top_tag();
+      } else {
+        highlightTagText(tag.textContent.toLowerCase());
+      }
+    });
+  });
+}
+
+function scroll_to_top_tag() {
+  const searchInput = document.getElementById("search_input");
+  searchInput.scrollIntoView();
+}
