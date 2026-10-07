@@ -12,3 +12,8 @@ This version keeps the existing floating search-results panel and adds:
 - The floating result window remains draggable, now using its header as the drag handle so result/chart interactions do not accidentally drag the panel.
 
 Search matching intentionally preserves the existing behavior: a search for `friend` also matches words beginning with `friend`, such as `friendly` and `friendship`.
+
+## Follow-up interaction/mobile fixes
+- Clicking a frequency trend now opens the matching work (for corpus searches), scrolls the floating result panel to the nearest result, and highlights that result row.
+- The selected result row uses a yellow background so it remains visually distinct.
+- On mobile, the text selector is aligned with the other search controls and uses a smaller font/height.

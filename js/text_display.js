@@ -9,7 +9,7 @@ let highlight_curr = "none";
 let toggle_button_display = false;
 let isTagListVisible = false; // Track the visibility state
 
-const FolderBase = "./teiEncode/";
+const FolderBase = "../../teiEncode/";
 const OptionToFilename = {
   "Search a text to explore": "default_page",
   "Mr. Gilfil's Love Story (1857)": "Mr.Gilfil's Love Story",
@@ -665,8 +665,44 @@ function jumpToNearestMatch(matches, targetPosition) {
     }
   });
 
-  if (isCorpusSelection()) openAndScrollToGroup(nearest.groupKey);
   jumpToMatch(nearest);
+}
+
+function focusSearchResult(match) {
+  if (!match) return;
+
+  if (isCorpusSelection()) {
+    const details = Array.from(document.querySelectorAll('.work-result-group')).find(
+      (item) => item.dataset.groupKey === match.groupKey,
+    );
+    if (details) details.open = true;
+  }
+
+  document.querySelectorAll('.search-result.is-active-result').forEach((item) => {
+    item.classList.remove('is-active-result');
+  });
+
+  const resultItem = Array.from(document.querySelectorAll('.search-result')).find(
+    (item) => item.dataset.matchId === match.id,
+  );
+  if (!resultItem) return;
+
+  resultItem.classList.add('is-active-result');
+
+  const panelBody = resultItem.closest('.search-panel-body');
+  if (panelBody) {
+    // Scroll only the floating results panel, not the page itself.
+    requestAnimationFrame(() => {
+      const itemRect = resultItem.getBoundingClientRect();
+      const panelRect = panelBody.getBoundingClientRect();
+      const desiredTop =
+        panelBody.scrollTop +
+        (itemRect.top - panelRect.top) -
+        panelRect.height / 2 +
+        itemRect.height / 2;
+      panelBody.scrollTo({ top: Math.max(0, desiredTop), behavior: 'smooth' });
+    });
+  }
 }
 
 function jumpToMatch(match) {
@@ -700,6 +736,10 @@ function jumpToMatch(match) {
   const currentResult = document.getElementById(match.popId);
   if (currentResult) currentResult.classList.add("text-primary");
   id_pop_row = match.popId;
+
+  // Keep the floating result list synchronized with jumps from both the
+  // result list and the frequency trend chart.
+  focusSearchResult(match);
 
   if (search_toggle !== targetId) {
     if (search_toggle !== "") {
