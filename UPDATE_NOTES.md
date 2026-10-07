@@ -17,3 +17,15 @@ Search matching intentionally preserves the existing behavior: a search for `fri
 - Clicking a frequency trend now opens the matching work (for corpus searches), scrolls the floating result panel to the nearest result, and highlights that result row.
 - The selected result row uses a yellow background so it remains visually distinct.
 - On mobile, the text selector is aligned with the other search controls and uses a smaller font/height.
+
+## Mobile robustness update
+- Corrected `FolderBase` for the current GitHub Pages layout to `./teiEncode/`.
+- Search panel now appears immediately with a loading state before large-corpus processing.
+- Added search-run cancellation so a newer search cannot be overwritten by an older pending search.
+- Added XML-load cancellation so quickly changing works cannot display a stale fetch response.
+- Corpus result rows are rendered lazily and in animation-frame batches instead of creating every result row at once.
+- Trend clicks force-render only the needed work, then synchronize and highlight the exact result row.
+- Disabled touch dragging of the floating panel on phones to avoid gesture conflicts with scrolling/tapping.
+- Added viewport clamping and mobile viewport-height handling.
+- Reduced mobile search-control sizes and aligned the selector/input/buttons.
+- Mobile jumps use immediate scrolling to reduce simultaneous animation load in Safari.

@@ -9,7 +9,14 @@ let highlight_curr = "none";
 let toggle_button_display = false;
 let isTagListVisible = false; // Track the visibility state
 
-const FolderBase = "../teiEncode/";
+// Search lifecycle state. A token prevents an older/slow search from overwriting
+// a newer one, which is especially important on mobile devices.
+let activeSearchRun = 0;
+let activeContentLoad = 0;
+let activeGroupStats = new Map();
+
+// GitHub Pages repository layout: /index.html + /teiEncode/
+const FolderBase = "./teiEncode/";
 const OptionToFilename = {
   "Search a text to explore": "default_page",
   "Mr. Gilfil's Love Story (1857)": "Mr.Gilfil's Love Story",
@@ -117,6 +124,7 @@ function populateDropdown() {
 }
 
 async function displayTEIContent(filename) {
+  const loadId = ++activeContentLoad;
   let relativePath = FolderBase + filename + ".xml";
 
   try {
@@ -130,6 +138,7 @@ async function displayTEIContent(filename) {
 
     // Get the XML text from the response
     const xmlText = await response.text();
+    if (loadId !== activeContentLoad) return;
 
     // Use DOMParser to parse the XML text
     const parser = new DOMParser();
@@ -143,6 +152,7 @@ async function displayTEIContent(filename) {
     // Escape the XML string
 
     const display = document.getElementById("xml-display");
+    if (loadId !== activeContentLoad) return;
     display.innerHTML = escapeXml(serializedXml);
     annotateCorpusStructure(xmlDoc, display);
   } catch (error) {
@@ -202,7 +212,9 @@ function annotateCorpusStructure(xmlDoc, displayArea) {
   });
 }
 
-function searchAndHighlight(phrase) {
+async function searchAndHighlight(phrase) {
+  const runId = ++activeSearchRun;
+
   if (phrase === "" || isOnlyWhitespace(phrase) === true) {
     hide_search_container();
     return;
@@ -222,6 +234,27 @@ function searchAndHighlight(phrase) {
   searchContainer.classList.toggle("corpus-search", isCorpusSelection());
   searchContainer.replaceChildren();
 
+  // Paint the panel immediately. On large corpora, building thousands of DOM
+  // nodes can take noticeable time on phones; this prevents an apparently
+  // empty/frozen result window.
+  const panelBody = document.createElement("div");
+  panelBody.className = "search-panel-body";
+  const loading = document.createElement("div");
+  loading.className = "search-loading";
+  loading.textContent = "Searching…";
+  panelBody.appendChild(loading);
+  searchContainer.appendChild(panelBody);
+  addSearchPanelHeader(searchContainer, panelBody, "Searching…", searchInput);
+  searchContainer.style.display = "block";
+  draggable_div(searchContainer);
+  clampSearchPanelToViewport(searchContainer);
+
+  // Give the browser a chance to display the loading state before doing the
+  // corpus work. Two frames is more reliable in mobile Safari.
+  await nextPaint();
+  await nextPaint();
+  if (runId !== activeSearchRun) return;
+
   const escapedPhrase = phrase.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
   // Preserve the current Text Explorer behavior: a search for "friend"
   // also finds words such as "friendly" and "friendship".
@@ -230,21 +263,32 @@ function searchAndHighlight(phrase) {
   const nodeEntries = collectSearchableTextNodes(displayArea);
   const groupStats = buildGroupStats(nodeEntries);
   const matches = highlightMatches(nodeEntries, groupStats, regex);
+  if (runId !== activeSearchRun) return;
 
-  const panelBody = document.createElement("div");
-  panelBody.className = "search-panel-body";
+  activeGroupStats = groupStats;
 
+  const fragment = document.createDocumentFragment();
   const analytics = buildSearchAnalytics(matches, groupStats, phrase);
-  if (analytics) panelBody.appendChild(analytics);
-
+  if (analytics) fragment.appendChild(analytics);
   const searchResults = buildSearchResults(matches, groupStats);
-  panelBody.appendChild(searchResults);
-  searchContainer.appendChild(panelBody);
+  fragment.appendChild(searchResults);
 
-  addSearchPanelHeader(searchContainer, panelBody, matches.length, searchInput);
+  panelBody.replaceChildren(fragment);
+  const resultCount = searchContainer.querySelector(".search-result-count");
+  if (resultCount) resultCount.textContent = `${matches.length} results`;
 
-  searchContainer.style.display = "block";
-  draggable_div(searchContainer);
+  // Start rendering the first open corpus group after the main panel is on
+  // screen. Remaining groups render only when opened.
+  if (isCorpusSelection()) {
+    requestAnimationFrame(() => {
+      const openGroup = searchResults.querySelector(".work-result-group[open]");
+      if (openGroup) ensureGroupResultsRendered(openGroup, false);
+    });
+  }
+}
+
+function nextPaint() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
 }
 
 function isCorpusSelection() {
@@ -610,17 +654,84 @@ function buildSearchResults(matches, groupStats) {
       trendSection.appendChild(buildTrendChart(group.matches, `Distribution in ${group.title}`));
       details.appendChild(trendSection);
 
+      // Do not construct hundreds of result rows for every book up front.
+      // They are rendered in small batches only when a book is opened.
       const resultList = document.createElement("div");
       resultList.className = "group-result-list";
-      group.matches.forEach((match) => resultList.appendChild(createSearchResultItem(match)));
+      resultList.dataset.rendered = "false";
+      resultList.dataset.rendering = "false";
       details.appendChild(resultList);
+
+      details.addEventListener("toggle", () => {
+        if (details.open) ensureGroupResultsRendered(details, false);
+      });
+
       searchResults.appendChild(details);
     });
   } else {
-    matches.forEach((match) => searchResults.appendChild(createSearchResultItem(match)));
+    // Individual works are smaller; build them in one fragment to minimize
+    // layout/reflow work.
+    const fragment = document.createDocumentFragment();
+    matches.forEach((match) => fragment.appendChild(createSearchResultItem(match)));
+    searchResults.appendChild(fragment);
   }
 
   return searchResults;
+}
+
+function ensureGroupResultsRendered(details, immediate = false) {
+  if (!details) return;
+  const resultList = details.querySelector(".group-result-list");
+  if (!resultList || resultList.dataset.rendered === "true") return;
+
+  const group = activeGroupStats.get(details.dataset.groupKey);
+  if (!group) return;
+
+  if (immediate) {
+    // Cancel any scheduled batch by changing the generation marker.
+    const generation = String((Number(resultList.dataset.generation || 0) + 1));
+    resultList.dataset.generation = generation;
+    const fragment = document.createDocumentFragment();
+    group.matches.forEach((match) => fragment.appendChild(createSearchResultItem(match)));
+    resultList.replaceChildren(fragment);
+    resultList.dataset.rendered = "true";
+    resultList.dataset.rendering = "false";
+    return;
+  }
+
+  if (resultList.dataset.rendering === "true") return;
+  resultList.dataset.rendering = "true";
+  const generation = String((Number(resultList.dataset.generation || 0) + 1));
+  resultList.dataset.generation = generation;
+
+  const status = document.createElement("div");
+  status.className = "group-results-loading";
+  status.textContent = "Loading results…";
+  resultList.replaceChildren(status);
+
+  let index = 0;
+  const chunkSize = window.matchMedia("(max-width: 700px)").matches ? 30 : 70;
+
+  function appendChunk() {
+    if (resultList.dataset.generation !== generation) return;
+    if (index === 0) resultList.replaceChildren();
+
+    const fragment = document.createDocumentFragment();
+    const end = Math.min(group.matches.length, index + chunkSize);
+    for (; index < end; index += 1) {
+      fragment.appendChild(createSearchResultItem(group.matches[index]));
+    }
+    resultList.appendChild(fragment);
+
+    if (index < group.matches.length) {
+      requestAnimationFrame(appendChunk);
+    } else {
+      resultList.dataset.rendered = "true";
+      resultList.dataset.rendering = "false";
+    }
+  }
+
+  requestAnimationFrame(appendChunk);
 }
 
 function createSearchResultItem(match) {
@@ -647,9 +758,12 @@ function openAndScrollToGroup(groupKey) {
   );
   if (!details) return;
   details.open = true;
+  ensureGroupResultsRendered(details, false);
   const panelBody = details.closest(".search-panel-body");
   if (panelBody) {
-    panelBody.scrollTo({ top: Math.max(0, details.offsetTop - 6), behavior: "smooth" });
+    requestAnimationFrame(() => {
+      panelBody.scrollTo({ top: Math.max(0, details.offsetTop - 6), behavior: "smooth" });
+    });
   }
 }
 
@@ -671,27 +785,29 @@ function jumpToNearestMatch(matches, targetPosition) {
 function focusSearchResult(match) {
   if (!match) return;
 
+  let details = null;
   if (isCorpusSelection()) {
-    const details = Array.from(document.querySelectorAll('.work-result-group')).find(
+    details = Array.from(document.querySelectorAll(".work-result-group")).find(
       (item) => item.dataset.groupKey === match.groupKey,
     );
-    if (details) details.open = true;
+    if (details) {
+      details.open = true;
+      // A graph click may target a row that has not been lazily created yet.
+      // Render this one group immediately so navigation never silently fails.
+      ensureGroupResultsRendered(details, true);
+    }
   }
 
-  document.querySelectorAll('.search-result.is-active-result').forEach((item) => {
-    item.classList.remove('is-active-result');
+  document.querySelectorAll(".search-result.is-active-result").forEach((item) => {
+    item.classList.remove("is-active-result");
   });
 
-  const resultItem = Array.from(document.querySelectorAll('.search-result')).find(
-    (item) => item.dataset.matchId === match.id,
-  );
+  const resultItem = document.querySelector(`.search-result[data-match-id="${CSS.escape(match.id)}"]`);
   if (!resultItem) return;
+  resultItem.classList.add("is-active-result");
 
-  resultItem.classList.add('is-active-result');
-
-  const panelBody = resultItem.closest('.search-panel-body');
+  const panelBody = resultItem.closest(".search-panel-body");
   if (panelBody) {
-    // Scroll only the floating results panel, not the page itself.
     requestAnimationFrame(() => {
       const itemRect = resultItem.getBoundingClientRect();
       const panelRect = panelBody.getBoundingClientRect();
@@ -700,9 +816,16 @@ function focusSearchResult(match) {
         (itemRect.top - panelRect.top) -
         panelRect.height / 2 +
         itemRect.height / 2;
-      panelBody.scrollTo({ top: Math.max(0, desiredTop), behavior: 'smooth' });
+      panelBody.scrollTo({
+        top: Math.max(0, desiredTop),
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
     });
   }
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function jumpToMatch(match) {
@@ -729,7 +852,10 @@ function jumpToMatch(match) {
   const targetId = target.id;
   const targetPosition = target.getBoundingClientRect().top;
   const offsetPosition = window.pageYOffset + targetPosition - window.innerHeight / 2;
-  window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+  window.scrollTo({
+    top: offsetPosition,
+    behavior: window.matchMedia("(max-width: 700px)").matches || prefersReducedMotion() ? "auto" : "smooth",
+  });
 
   const oldResult = document.getElementById(id_pop_row);
   if (oldResult) oldResult.classList.remove("text-primary");
@@ -757,7 +883,7 @@ function addSearchPanelHeader(docContainer, panelBody, resultCount, docScrollTop
 
   const textDisplay = document.createElement("span");
   textDisplay.className = "text-primary fs-6 search-result-count";
-  textDisplay.textContent = `${resultCount} results`;
+  textDisplay.textContent = typeof resultCount === "number" ? `${resultCount} results` : String(resultCount);
   header.appendChild(textDisplay);
 
   const divButtons = document.createElement("div");
@@ -811,6 +937,29 @@ function offset(el) {
   };
 }
 
+function clampSearchPanelToViewport(panel) {
+  if (!panel || panel.style.display === "none") return;
+
+  // On phones, CSS owns the position. Clearing old drag coordinates avoids a
+  // desktop drag position leaving the panel partly off-screen after rotation.
+  if (window.matchMedia("(max-width: 700px)").matches) {
+    panel.style.left = "";
+    panel.style.top = "";
+    return;
+  }
+
+  const rect = panel.getBoundingClientRect();
+  const margin = 8;
+  let left = rect.left;
+  let top = rect.top;
+  if (rect.right > window.innerWidth - margin) left -= rect.right - (window.innerWidth - margin);
+  if (left < margin) left = margin;
+  if (rect.bottom > window.innerHeight - margin) top -= rect.bottom - (window.innerHeight - margin);
+  if (top < margin) top = margin;
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+}
+
 function draggable_div(doc_drag) {
   //prevent duplicate event binding
   if (doc_drag.dataset.draggableInitialized === "true") {
@@ -848,41 +997,19 @@ function draggable_div(doc_drag) {
     document.removeEventListener("mouseup", onMouseUp);
   }
 
-  //mobile device suport
-  doc_drag.addEventListener("touchstart", function (e) {
-    // when using finger on mobile devices
-    if (!e.target.closest(".search-panel-header") || e.target.closest("button")) {
-      return;
-    }
-    if(e.touches.length !== 1) {
-      return;
-    }
-    const touch = e.touches[0];
-    elementX = doc_drag.offsetLeft - touch.clientX;
-    elementY = doc_drag.offsetTop - touch.clientY;
-
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
-    document.addEventListener("touchend", onTouchEnd);
-    document.addEventListener("touchcancel", onTouchEnd);
-  },
-  { passive: true }
-);
-function onTouchMove(e) {
-  if (e.touches.length !== 1) {
-    return;
-  }
-  e.preventDefault();
-  const touch = e.touches[0];
-  doc_drag.style.left = touch.clientX + elementX + "px";
-  doc_drag.style.top = touch.clientY + elementY + "px";
-}
-function onTouchEnd() {
-  document.removeEventListener("touchmove", onTouchMove);
-  document.removeEventListener("touchend", onTouchEnd);
-  document.removeEventListener("touchcancel", onTouchEnd);
+  // Deliberately do not drag the floating panel with touch. Mobile Safari
+  // otherwise has to decide whether a header gesture means drag, scroll, or tap,
+  // which can make the panel feel unreliable. Desktop mouse dragging remains.
 }
 
-}
+
+let searchPanelResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(searchPanelResizeTimer);
+  searchPanelResizeTimer = setTimeout(() => {
+    clampSearchPanelToViewport(document.getElementById("search_container"));
+  }, 100);
+});
 
 function xmlToHtml(xmlNode) {
   let html = "";
